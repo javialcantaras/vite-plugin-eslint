@@ -2,18 +2,18 @@ import type { Plugin, ResolvedConfig } from 'vite';
 import { normalizePath } from 'vite';
 import { resolve } from 'path';
 import { ESLint } from 'eslint';
-import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
+import { Worker } from 'worker_threads';
 import { createFilter } from '@rollup/pluginutils';
 
-import { checkVueFile, Options } from './utils';
+import { Options } from './utils';
 
-if (!isMainThread) {
-  const eslint = new ESLint(workerData.eslintOptions);
+// if (!isMainThread) {
+//   const eslint = new ESLint(workerData.eslintOptions);
 
-  parentPort?.on('message', async (filePath) => {
-    const report = await eslint.lintFiles(filePath);
-  });
-}
+//   parentPort?.on('message', async (filePath) => {
+//     const report = await eslint.lintFiles(filePath);
+//   });
+// }
 
 export default function eslintPlugin(options: Options = {}): Plugin {
   const {
@@ -21,8 +21,6 @@ export default function eslintPlugin(options: Options = {}): Plugin {
     fix = false,
     include = ['src/**/*.js', 'src/**/*.jsx', 'src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
     exclude = /node_modules/,
-    throwOnWarning = true,
-    throwOnError = true,
   } = options;
   let config: ResolvedConfig;
   let worker: Worker;
