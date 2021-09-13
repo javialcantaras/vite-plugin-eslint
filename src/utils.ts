@@ -1,6 +1,5 @@
-import * as qs from 'querystring';
-import * as path from 'path';
 import type { ESLint } from 'eslint';
+import { parse } from 'querystring';
 
 export interface Options {
   /** The cache is enabled by default to decrease execution time */
@@ -19,14 +18,10 @@ export interface Options {
   throwOnError?: boolean;
 }
 
-export function normalizePath(id: string): string {
-  return path.relative(process.cwd(), id).split(path.sep).join('/');
-}
-
 export function checkVueFile(id: string): boolean {
   if (!id.includes('?')) return false;
 
   const rawQuery = id.split('?', 2)[1];
 
-  return qs.parse(rawQuery).vue !== null ? true : false;
+  return parse(rawQuery).vue !== null ? true : false;
 }
