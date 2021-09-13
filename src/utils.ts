@@ -1,7 +1,7 @@
 import type { ESLint } from 'eslint';
 import { parse } from 'querystring';
 
-export interface Options {
+export interface Options extends ESLint.Options {
   /** The cache is enabled by default to decrease execution time */
   cache?: boolean;
   /** auto fix source code */

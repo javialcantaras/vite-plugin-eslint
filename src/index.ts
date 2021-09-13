@@ -2,18 +2,47 @@ import type { Plugin, ResolvedConfig } from 'vite';
 import { normalizePath } from 'vite';
 import { resolve } from 'path';
 import { ESLint } from 'eslint';
-import { Worker } from 'worker_threads';
+import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
 import { createFilter } from '@rollup/pluginutils';
 
 import { Options } from './utils';
 
-// if (!isMainThread) {
-//   const eslint = new ESLint(workerData.eslintOptions);
+// use worker to lint file
+if (!isMainThread) {
+  const eslint = new ESLint(workerData.eslintOptions);
 
-//   parentPort?.on('message', async (filePath) => {
-//     const report = await eslint.lintFiles(filePath);
-//   });
-// }
+  parentPort?.on('message', async (filePath) => {
+    let formatter: ESLint.Formatter;
+
+    switch (typeof workerData.formatter) {
+      case 'string':
+        formatter = await eslint.loadFormatter(workerData.formatter);
+        break;
+      case 'function':
+        ({ formatter } = workerData);
+        break;
+      default:
+        formatter = await eslint.loadFormatter('stylish');
+    }
+
+    const reports = await eslint.lintFiles(filePath);
+    const hasWarnings = reports.some((item) => item.warningCount > 0);
+    const hasErrors = reports.some((item) => item.errorCount > 0);
+    const result = formatter.format(reports);
+
+    if (result) {
+      console.log(result);
+    }
+
+    // if (hasWarnings) {
+    //   workerData.warn(result);
+    // }
+
+    // if (hasErrors) {
+    //   workerData.error(result);
+    // }
+  });
+}
 
 export default function eslintPlugin(options: Options = {}): Plugin {
   const {
@@ -21,10 +50,12 @@ export default function eslintPlugin(options: Options = {}): Plugin {
     fix = false,
     include = ['src/**/*.js', 'src/**/*.jsx', 'src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
     exclude = /node_modules/,
+    formatter = 'stylish',
+    ...otherEslintOptions
   } = options;
+  const filter = createFilter(include, exclude);
   let config: ResolvedConfig;
   let worker: Worker;
-  const filter = createFilter(include, exclude);
 
   return {
     name: 'vite:eslint',
@@ -34,6 +65,7 @@ export default function eslintPlugin(options: Options = {}): Plugin {
     transform(_, id) {
       const filePath = normalizePath(id);
       const eslintOptions: ESLint.Options = {
+        ...otherEslintOptions,
         fix,
         cache,
         cacheLocation: config.cacheDir
@@ -43,7 +75,12 @@ export default function eslintPlugin(options: Options = {}): Plugin {
 
       if (!worker) {
         worker = new Worker(__filename, {
-          workerData: { eslintOptions },
+          workerData: {
+            eslintOptions,
+            formatter,
+            // warn: this.warn,
+            // error: this.error,
+          },
         });
       }
 
