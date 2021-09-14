@@ -1,13 +1,12 @@
-import type { Plugin, ResolvedConfig } from 'vite';
-import { normalizePath } from 'vite';
-import { resolve } from 'path';
+import { normalizePath, Plugin, ResolvedConfig } from 'vite';
+import * as path from 'path';
 import { ESLint } from 'eslint';
 import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
 import { createFilter } from '@rollup/pluginutils';
 
 import { Options } from './utils';
 
-// use worker to lint file
+// use worker to lint
 if (!isMainThread) {
   const eslint = new ESLint(workerData.eslintOptions);
 
@@ -33,14 +32,6 @@ if (!isMainThread) {
     if (result) {
       console.log(result);
     }
-
-    // if (hasWarnings) {
-    //   workerData.warn(result);
-    // }
-
-    // if (hasErrors) {
-    //   workerData.error(result);
-    // }
   });
 }
 
@@ -69,8 +60,8 @@ export default function eslintPlugin(options: Options = {}): Plugin {
         fix,
         cache,
         cacheLocation: config.cacheDir
-          ? resolve(config.cacheDir, './vite-plugin-eslint')
-          : resolve(process.cwd(), './node_modules/.vite/vite-plugin-eslint'),
+          ? path.resolve(config.cacheDir, './vite-plugin-eslint')
+          : path.resolve(process.cwd(), './node_modules/.vite/vite-plugin-eslint'),
       };
 
       if (!worker) {
@@ -78,8 +69,6 @@ export default function eslintPlugin(options: Options = {}): Plugin {
           workerData: {
             eslintOptions,
             formatter,
-            // warn: this.warn,
-            // error: this.error,
           },
         });
       }
