@@ -1,10 +1,10 @@
-import { normalizePath, Plugin, ResolvedConfig } from 'vite';
+import { createLogger, normalizePath, Plugin, ResolvedConfig } from 'vite';
 import * as path from 'path';
 import { ESLint } from 'eslint';
 import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
 import { createFilter } from '@rollup/pluginutils';
 
-import { Options } from './utils';
+import { checkVueFile, Options } from './utils';
 
 // use worker to lint
 if (!isMainThread) {
@@ -28,9 +28,14 @@ if (!isMainThread) {
     const hasWarnings = reports.some((item) => item.warningCount > 0);
     const hasErrors = reports.some((item) => item.errorCount > 0);
     const result = formatter.format(reports);
+    const logger = createLogger();
 
-    if (result) {
-      console.log(result);
+    if (hasWarnings) {
+      logger.warn(result);
+    }
+
+    if (hasErrors) {
+      logger.error(result);
     }
   });
 }
@@ -47,11 +52,16 @@ export default function eslintPlugin(options: Options = {}): Plugin {
   const filter = createFilter(include, exclude);
   let config: ResolvedConfig;
   let worker: Worker;
+  let cacheLocation = '';
 
   return {
     name: 'vite:eslint',
     configResolved(viteConfig) {
       config = viteConfig;
+      cacheLocation = path.resolve(
+        config.cacheDir ? config.cacheDir : path.resolve(process.cwd(), './node_modules'),
+        './vite-plugin-eslint',
+      );
     },
     transform(_, id) {
       const filePath = normalizePath(id);
@@ -59,9 +69,7 @@ export default function eslintPlugin(options: Options = {}): Plugin {
         ...otherEslintOptions,
         fix,
         cache,
-        cacheLocation: config.cacheDir
-          ? path.resolve(config.cacheDir, './vite-plugin-eslint')
-          : path.resolve(process.cwd(), './node_modules/.vite/vite-plugin-eslint'),
+        cacheLocation,
       };
 
       if (!worker) {
@@ -73,6 +81,7 @@ export default function eslintPlugin(options: Options = {}): Plugin {
         });
       }
 
+      if (config.command === 'build' && checkVueFile(filePath)) return null;
       if (filter(filePath)) {
         worker.postMessage(filePath);
       }
