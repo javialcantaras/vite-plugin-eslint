@@ -1,89 +1,73 @@
-import { createLogger, normalizePath, Plugin, ResolvedConfig } from 'vite';
 import * as path from 'path';
+import { normalizePath, Plugin, ResolvedConfig } from 'vite';
 import { ESLint } from 'eslint';
-import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
 import { createFilter } from '@rollup/pluginutils';
 
 import { checkVueFile, Options } from './utils';
-
-// use worker to lint
-if (!isMainThread) {
-  const eslint = new ESLint(workerData.eslintOptions);
-
-  parentPort?.on('message', async (filePath) => {
-    let formatter: ESLint.Formatter;
-
-    switch (typeof workerData.formatter) {
-      case 'string':
-        formatter = await eslint.loadFormatter(workerData.formatter);
-        break;
-      case 'function':
-        ({ formatter } = workerData);
-        break;
-      default:
-        formatter = await eslint.loadFormatter('stylish');
-    }
-
-    const reports = await eslint.lintFiles(filePath);
-    const hasWarnings = reports.some((item) => item.warningCount > 0);
-    const hasErrors = reports.some((item) => item.errorCount > 0);
-    const result = formatter.format(reports);
-    const logger = createLogger();
-
-    if (hasWarnings) {
-      logger.warn(result);
-    }
-
-    if (hasErrors) {
-      logger.error(result);
-    }
-  });
-}
 
 export default function eslintPlugin(options: Options = {}): Plugin {
   const {
     cache = true,
     fix = false,
-    include = ['src/**/*.js', 'src/**/*.jsx', 'src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
+    include = ['src/**/*.js', 'src/**/*.jsx', 'src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue', 'src/**/*.svelte'],
     exclude = /node_modules/,
     formatter = 'stylish',
     ...otherEslintOptions
   } = options;
+
   const filter = createFilter(include, exclude);
   let config: ResolvedConfig;
-  let worker: Worker;
   let cacheLocation = '';
+  let eslint: ESLint;
+  let format: ESLint.Formatter;
 
   return {
-    name: 'vite:eslint',
+    name: 'vite-plugin-eslint',
+    enforce: 'pre',
     configResolved(viteConfig) {
       config = viteConfig;
       cacheLocation = path.resolve(
-        config.cacheDir ? config.cacheDir : path.resolve(process.cwd(), './node_modules'),
+        config.cacheDir ? config.cacheDir : path.resolve(process.cwd(), './node_modules/.vite'),
         './vite-plugin-eslint',
       );
     },
-    transform(_, id) {
-      const filePath = normalizePath(id);
-      const eslintOptions: ESLint.Options = {
+    buildStart() {
+      eslint = new ESLint({
         ...otherEslintOptions,
         fix,
         cache,
-        cacheLocation,
-      };
+        // cacheLocation,
+        cacheStrategy: 'content',
+      });
+    },
+    async transform(_, id) {
+      const file = normalizePath(id);
 
-      if (!worker) {
-        worker = new Worker(__filename, {
-          workerData: {
-            eslintOptions,
-            formatter,
-          },
-        });
+      if (!filter(file) || (await eslint.isPathIgnored(file))) return null;
+      if (config.command === 'build' && checkVueFile(file)) return null;
+
+      switch (typeof formatter) {
+        case 'string':
+          format = await eslint.loadFormatter(formatter);
+          break;
+        case 'function':
+          format = formatter;
+          break;
+        default:
+          format = await eslint.loadFormatter('stylish');
       }
 
-      if (config.command === 'build' && checkVueFile(filePath)) return null;
-      if (filter(filePath)) {
-        worker.postMessage(filePath);
+      const report = await eslint.lintFiles(file);
+      const hasWarnings = report.some((item) => item.warningCount !== 0);
+      const hasErrors = report.some((item) => item.errorCount !== 0);
+      const result = format.format(report);
+
+      if (hasWarnings) {
+        this.warn(result);
+      }
+
+      if (hasErrors) {
+        this.error(result);
       }
 
       return null;
