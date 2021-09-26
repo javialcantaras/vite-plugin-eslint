@@ -4,8 +4,6 @@ import { parse } from 'querystring';
 export interface Options extends ESLint.Options {
   /** The cache is enabled by default to decrease execution time */
   cache?: boolean;
-  /** auto fix source code */
-  fix?: boolean;
   /** A single file, or array of files, to include when linting */
   include?: string | string[];
   /** A single file, or array of files, to exclude when linting */
