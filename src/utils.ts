@@ -23,3 +23,31 @@ export function checkVueFile(id: string): boolean {
 
   return parse(rawQuery).vue !== null ? true : false;
 }
+
+export enum DiagnosticLevel {
+  Warning = 0,
+  Error = 1,
+  Suggestion = 2,
+  Message = 3,
+}
+
+export function normalizeESLintReport(report: ESLint.LintResult) {
+  return report.messages.map((r) => {
+    let level = DiagnosticLevel.Error;
+
+    switch (r.severity) {
+      // off, ignore
+      case 0:
+        level = DiagnosticLevel.Error;
+        break;
+      // warn
+      case 1:
+        level = DiagnosticLevel.Warning;
+        break;
+      // error
+      case 2:
+        level = DiagnosticLevel.Error;
+        break;
+    }
+  });
+}
