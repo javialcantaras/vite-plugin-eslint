@@ -31,23 +31,23 @@ export enum DiagnosticLevel {
   Message = 3,
 }
 
-export function normalizeESLintReport(result: ESLint.LintResult) {
-  return result.messages.map((item) => {
-    let level = DiagnosticLevel.Error;
+// export function normalizeESLintReport(result: ESLint.LintResult) {
+//   return result.messages.map((item) => {
+//     let level = DiagnosticLevel.Error;
 
-    switch (item.severity) {
-      // off, ignore
-      case 0:
-        level = DiagnosticLevel.Error;
-        break;
-      // warn
-      case 1:
-        level = DiagnosticLevel.Warning;
-        break;
-      // error
-      case 2:
-        level = DiagnosticLevel.Error;
-        break;
-    }
-  });
-}
+//     switch (item.severity) {
+//       // off, ignore
+//       case 0:
+//         level = DiagnosticLevel.Error;
+//         break;
+//       // warn
+//       case 1:
+//         level = DiagnosticLevel.Warning;
+//         break;
+//       // error
+//       case 2:
+//         level = DiagnosticLevel.Error;
+//         break;
+//     }
+//   });
+// }
