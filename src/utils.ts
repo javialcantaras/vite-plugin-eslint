@@ -31,11 +31,11 @@ export enum DiagnosticLevel {
   Message = 3,
 }
 
-export function normalizeESLintReport(report: ESLint.LintResult) {
-  return report.messages.map((r) => {
+export function normalizeESLintReport(result: ESLint.LintResult) {
+  return result.messages.map((item) => {
     let level = DiagnosticLevel.Error;
 
-    switch (r.severity) {
+    switch (item.severity) {
       // off, ignore
       case 0:
         level = DiagnosticLevel.Error;
