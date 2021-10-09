@@ -1,4 +1,4 @@
-import { normalizePath, Plugin, ResolvedConfig, ViteDevServer } from 'vite';
+import { normalizePath, Plugin, ResolvedConfig } from 'vite';
 import { ESLint } from 'eslint';
 import { createFilter } from '@rollup/pluginutils';
 import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
@@ -55,9 +55,7 @@ export default function eslintPlugin(userOptions: Options = {}): Plugin {
   const filter = createFilter(include, exclude);
   const eslint = new ESLint(eslintOptions);
   let config: ResolvedConfig;
-  // let format: ESLint.Formatter;
   let worker: Worker;
-  let server: ViteDevServer;
 
   return {
     name: 'vite-plugin-eslint',
@@ -72,7 +70,6 @@ export default function eslintPlugin(userOptions: Options = {}): Plugin {
           workerData: {
             eslintOptions,
             formatter,
-            server,
           },
         });
       }
