@@ -1,9 +1,9 @@
-import { normalizePath, Plugin, ResolvedConfig } from 'vite';
+import { ErrorPayload, normalizePath, Plugin, ResolvedConfig } from 'vite';
 import { ESLint } from 'eslint';
 import { createFilter } from '@rollup/pluginutils';
 import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
 
-import { checkVueFile, Options } from './utils';
+import { checkVueFile, Options, pluginName, transformToViteError } from './utils';
 
 if (!isMainThread) {
   (async () => {
@@ -26,17 +26,22 @@ if (!isMainThread) {
     }
 
     parentPort?.on('message', async (filePath: string) => {
-      const report = await eslint.lintFiles(filePath);
-      const hasWarnings = report.some((item) => item.warningCount !== 0);
-      const hasErrors = report.some((item) => item.errorCount !== 0);
-      const result = format.format(report);
+      if (await eslint.isPathIgnored(filePath)) return;
 
-      if (hasWarnings) {
+      const results = await eslint.lintFiles(filePath);
+      const hasWarnings = results.some((item) => item.warningCount !== 0);
+      const hasErrors = results.some((item) => item.errorCount !== 0);
+      const result = format.format(results);
+
+      if (hasWarnings || hasErrors) {
         console.log(result);
       }
 
       if (hasErrors) {
-        console.log(result);
+        parentPort?.postMessage({
+          type: 'error',
+          err: transformToViteError(result),
+        });
       }
     });
   })();
@@ -44,7 +49,6 @@ if (!isMainThread) {
 
 export default function eslintPlugin(userOptions: Options = {}): Plugin {
   const options: Options = {
-    cache: true,
     include: ['src/**/*.js', 'src/**/*.jsx', 'src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue', 'src/**/*.svelte'],
     exclude: 'node_modules',
     formatter: 'stylish',
@@ -53,29 +57,31 @@ export default function eslintPlugin(userOptions: Options = {}): Plugin {
   const { include, exclude, formatter, ...eslintOptions } = options;
 
   const filter = createFilter(include, exclude);
-  const eslint = new ESLint(eslintOptions);
+  const worker = new Worker(__filename, {
+    workerData: {
+      eslintOptions,
+      formatter,
+    },
+  });
   let config: ResolvedConfig;
-  let worker: Worker;
 
   return {
-    name: 'vite-plugin-eslint',
+    name: pluginName,
     configResolved(resolvedConfig) {
       config = resolvedConfig;
     },
-    async transform(_, id) {
-      const filePath = normalizePath(id);
-
-      if (!worker) {
-        worker = new Worker(__filename, {
-          workerData: {
-            eslintOptions,
-            formatter,
-          },
+    configureServer(server) {
+      if (config.command === 'serve') {
+        worker.on('message', (payload: ErrorPayload) => {
+          server.ws.send(payload);
         });
       }
+    },
+    transform(_, id) {
+      const filePath = normalizePath(id);
 
-      if (!filter(filePath) || (await eslint.isPathIgnored(filePath))) return null;
       if (config.command === 'build' && checkVueFile(filePath)) return null;
+      if (!filter(filePath)) return null;
 
       worker.postMessage(filePath);
 
