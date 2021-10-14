@@ -5,6 +5,8 @@ import { parse } from 'querystring';
 export const pluginName = 'vite-plugin-eslint';
 
 export interface Options extends ESLint.Options {
+  /** Decrease execution time */
+  cache?: boolean;
   /** A single file, or array of files, to include when linting */
   include?: string | string[];
   /** A single file, or array of files, to exclude when linting */
