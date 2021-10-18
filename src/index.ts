@@ -85,22 +85,22 @@ export default function eslintPlugin(userOptions: Options = {}): Plugin {
       if (config.command === 'build' && checkVueFile(filePath)) return null;
       if (!filter(filePath) || (await eslint.isPathIgnored(filePath))) return null;
 
-      // const results = await eslint.lintFiles(filePath);
-      // const hasWarnings = results.some((item) => item.warningCount !== 0);
-      // const hasErrors = results.some((item) => item.errorCount !== 0);
-      // const report = (await formatPromise).format(results);
+      const results = await eslint.lintFiles(filePath);
+      const hasWarnings = results.some((item) => item.warningCount !== 0);
+      const hasErrors = results.some((item) => item.errorCount !== 0);
+      const report = (await formatPromise).format(results);
 
-      // if (eslintOptions.fix && results) {
-      //   ESLint.outputFixes(results);
-      // }
+      if (eslintOptions.fix && results) {
+        ESLint.outputFixes(results);
+      }
 
-      // if (hasWarnings) {
-      //   this.warn(report);
-      // }
+      if (hasWarnings) {
+        this.warn(report);
+      }
 
-      // if (hasErrors) {
-      //   this.error(report);
-      // }
+      if (hasErrors) {
+        this.error(report);
+      }
 
       return null;
     },

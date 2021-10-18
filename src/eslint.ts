@@ -1,5 +1,5 @@
 import { ESLint } from 'eslint';
-import { isMainThread, parentPort, Worker } from 'worker_threads';
+import { Worker } from 'worker_threads';
 import { CreateFilter, createFilter } from '@rollup/pluginutils';
 
 import { Options } from './utils';
